@@ -7,6 +7,7 @@ from gymnasium import spaces
 from .cutCreator import CuttingBoxCreator
 # from .mdCreator import MDlayerBoxCreator
 from .binCreator import RandomBoxCreator, LoadBoxCreator, BoxCreator
+from .curriculumBoxCreator import CurriculumBoxCreator
 
 from render import VTKRender
 
@@ -45,13 +46,19 @@ class PackingEnv(gym.Env):
             assert item_set is not None
             if data_type == "random":
                 print(f"using items generated randomly")
-                self.box_creator = RandomBoxCreator(item_set)  
-            if data_type == "cut":
+                self.box_creator = RandomBoxCreator(item_set)
+            elif data_type == "cut":
                 print(f"using items generated through cutting method")
                 low = list(item_set[0])
                 up = list(item_set[-1])
                 low.extend(up)
                 self.box_creator = CuttingBoxCreator(container_size, low, self.can_rotate)
+            elif data_type == "curriculum":
+                print(f"using curriculum-based box generation")
+                self.box_creator = CurriculumBoxCreator(item_set)
+            else:
+                print(f"Unknown data_type '{data_type}', defaulting to random")
+                self.box_creator = RandomBoxCreator(item_set)
             assert isinstance(self.box_creator, BoxCreator)
         if load_test_data:
             print(f"use box dataset: {data_name}")
@@ -195,12 +202,23 @@ class PackingEnv(gym.Env):
 
         return self.cur_observation, reward, done, False, info
 
-    def reset(self, seed: Optional[int] = None):
-        super().reset(seed=seed)
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
+        super().reset(seed=seed, options=options)
         self.box_creator.reset()
-        self.container = Container(*self.bin_size)
+
+        # Update area based on current bin_size (in case it was changed by wrapper)
+        self.area = int(self.bin_size[0] * self.bin_size[1])
+
+        # Create new container with current bin_size and rotation setting
+        self.container = Container(*self.bin_size, rotation=self.can_rotate)
+
+        # Recreate candidates array with correct shape for current bin_size
+        if self.action_scheme == "EMS":
+            self.candidates = np.zeros((self.k_placement, 6), dtype=np.int32)
+        else:
+            self.candidates = np.zeros((self.k_placement, 3), dtype=np.int32)
+
         self.box_creator.generate_box_size()
-        self.candidates = np.zeros_like(self.candidates)
         return self.cur_observation, {}
     
     def seed(self, s=None):

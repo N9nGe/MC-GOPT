@@ -28,8 +28,18 @@ def get_args():
     except FileNotFoundError:
         print("No configuration file found")
     
-    box_small = int(max(cfg.env.container_size) / 10)
-    box_big = int(max(cfg.env.container_size) / 2)
+    # Handle multiple bin sizes for multi-size training (Objective 2)
+    if cfg.get("env.bin_sizes") is not None:
+        # Use largest bin size across all training bin sizes for box range calculation
+        max_container_size = max(max(size) for size in cfg.env.bin_sizes)
+        print(f"Multi-size training enabled with bin sizes: {cfg.env.bin_sizes}")
+        print(f"Using max container size {max_container_size} for box generation")
+    else:
+        # Single bin size training (original behavior)
+        max_container_size = max(cfg.env.container_size)
+
+    box_small = int(max_container_size / 10)
+    box_big = int(max_container_size / 2)
     # box_range = (5, 5, 5, 25, 25, 25)
     box_range = (box_small, box_small, box_small, box_big, box_big, box_big)
 

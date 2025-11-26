@@ -1,0 +1,55 @@
+# Configuration for multi-size training (Objective 2)
+# Trains on multiple bin sizes: mix of cubic and non-cubic
+# Cubic: 10x10x10, 20x20x20, 30x30x30, 50x50x50
+# Non-cubic: 10x15x12, 20x25x30, 25x35x30, 40x45x50
+
+# Custom run name (optional - comment out to use auto-generated name)
+run_name: multisize_8bins_cubic_noncubic
+
+seed: 5
+cuda_deterministic: True
+log_interval: 10
+
+env:
+  id: OnlinePack-v1
+  scheme: EMS                  # the scheme of generating candidate map: heightmap, EP, FC
+  rot: True
+  box_type: random              # random, cut
+  container_size: [10, 10, 10]  # Base size for box generation (will use max from bin_sizes)
+  bin_sizes: [[10, 10, 10], [10, 15, 12], [20, 20, 20], [20, 25, 30], [25, 35, 30], [30, 30, 30], [40, 45, 50], [50, 50, 50]]  # Multi-size training: 4 cubic + 4 non-cubic
+  step: 5                       # Box size step (based on max container size 50)
+  k_placement: 80              # number of candidate placements
+
+
+train:
+  algo: PPO
+  clip_param: 0.3
+  num_processes: 128    # the number of subprogresses, if debug, set to 1
+  num_steps: 5
+  epoch: 1200           # Increased from 1000 - more diversity needs more training
+  last_epoch: 200
+  batch_size: 128
+  step_per_epoch: 40000        # 2**15
+  repeat_per_collect: 1
+  gae_lambda: 0.96
+  reward_type:            # optional: "terminal", None
+  gamma: 1                  # discount factor for rewards (default: 1)
+
+opt:  # optimizer
+  optimizer: Adam              # optimizer: Adam, RMSprop
+  lr: 7e-5                     # learning rate (RMSprop7e-4, 1e-6, Adam7e-5)
+  lr_decay: True               # use a linear schedule on the learning rate
+  eps: 1e-5                    # epsilon (default: 1e-5)
+  alpha: 0.99                  # RMSprop alpha (default: 0.99)
+
+loss:
+  entropy: 0.001               # entropy term coefficient (default: 0.01)
+  value: 0.5                   # value loss coefficient (default: 0.5)
+
+model:
+  padding_mask: False                   # padding mask
+  embed_dim: 128
+  heads: 1
+  num_layers: 3
+  forward_expansion: 2
+  dropout: 0

@@ -1,0 +1,59 @@
+# Configuration for curriculum learning (Objective 3)
+# Trains with difficulty progression from easy (large boxes) to hard (small boxes)
+
+# Custom run name (optional - comment out to use auto-generated name)
+run_name: curriculum_10x10x10_700epochs_rampup_linear
+
+seed: 5
+cuda_deterministic: True
+log_interval: 10
+
+env:
+  id: OnlinePack-v1
+  scheme: EMS                  # the scheme of generating candidate map: heightmap, EP, FC
+  rot: True
+  box_type: curriculum          # Use curriculum-based box generation
+  container_size: [10, 10, 10]
+  step:
+  k_placement: 80              # number of candidate placements
+
+
+train:
+  algo: PPO
+  clip_param: 0.3
+  num_processes: 128    # the number of subprogresses, if debug, set to 1
+  num_steps: 5
+  epoch: 1000
+  last_epoch: 200
+  batch_size: 128
+  step_per_epoch: 40000        # 2**15
+  repeat_per_collect: 1
+  gae_lambda: 0.96
+  reward_type:            # optional: "terminal", None
+  gamma: 1                  # discount factor for rewards (default: 1)
+
+  # Curriculum learning parameters
+  use_curriculum: True
+  curriculum_initial: 0.2      # Start with easy episodes (large boxes)
+  curriculum_final: 0.8        # End with hard episodes (small boxes)
+  curriculum_epochs: 700       # Ramp up difficulty over 700 epochs
+  curriculum_schedule: linear  # linear, exponential, or step
+
+opt:  # optimizer
+  optimizer: Adam              # optimizer: Adam, RMSprop
+  lr: 7e-5                     # learning rate (RMSprop7e-4, 1e-6, Adam7e-5)
+  lr_decay: True               # use a linear schedule on the learning rate
+  eps: 1e-5                    # epsilon (default: 1e-5)
+  alpha: 0.99                  # RMSprop alpha (default: 0.99)
+
+loss:
+  entropy: 0.001               # entropy term coefficient (default: 0.01)
+  value: 0.5                   # value loss coefficient (default: 0.5)
+
+model:
+  padding_mask: False                   # padding mask
+  embed_dim: 128
+  heads: 1
+  num_layers: 3
+  forward_expansion: 2
+  dropout: 0

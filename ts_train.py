@@ -35,31 +35,50 @@ from tools import *
 from masked_ppo import MaskedPPOPolicy
 from masked_a2c import MaskedA2CPolicy
 from mycollector import PackCollector
+from envs.Packing.multiSizeWrapper import MultiSizeWrapper
+from curriculum import CurriculumScheduler
+from envs.Packing.curriculumBoxCreator import CurriculumBoxCreator, set_global_difficulty
  
 
 def make_envs(args):
+    # Check if multi-size training is enabled (Objective 2)
+    use_multi_size = args.env.get('bin_sizes') is not None
+    bin_sizes = args.env.bin_sizes if use_multi_size else None
+
+    # Use first bin size as base for environment creation in multi-size mode
+    base_container_size = bin_sizes[0] if use_multi_size else args.env.container_size
+
+    def make_train_env():
+        env = gym.make(args.env.id,
+                      container_size=base_container_size,
+                      enable_rotation=args.env.rot,
+                      data_type=args.env.box_type,
+                      item_set=args.env.box_size_set,
+                      reward_type=args.train.reward_type,
+                      action_scheme=args.env.scheme,
+                      k_placement=args.env.k_placement)
+        if use_multi_size:
+            env = MultiSizeWrapper(env, bin_sizes)
+        return env
+
+    def make_test_env():
+        env = gym.make(args.env.id,
+                      container_size=base_container_size,
+                      enable_rotation=args.env.rot,
+                      data_type=args.env.box_type,
+                      item_set=args.env.box_size_set,
+                      reward_type=args.train.reward_type,
+                      action_scheme=args.env.scheme,
+                      k_placement=args.env.k_placement)
+        if use_multi_size:
+            env = MultiSizeWrapper(env, bin_sizes)
+        return env
 
     train_envs = ts.env.SubprocVectorEnv(
-        [lambda: gym.make(args.env.id, 
-                          container_size=args.env.container_size,
-                          enable_rotation=args.env.rot,
-                          data_type=args.env.box_type,
-                          item_set=args.env.box_size_set, 
-                          reward_type=args.train.reward_type,
-                          action_scheme=args.env.scheme,
-                          k_placement=args.env.k_placement) 
-                          for _ in range(args.train.num_processes)]
+        [make_train_env for _ in range(args.train.num_processes)]
     )
     test_envs = ts.env.SubprocVectorEnv(
-        [lambda: gym.make(args.env.id, 
-                          container_size=args.env.container_size,
-                          enable_rotation=args.env.rot,
-                          data_type=args.env.box_type,
-                          item_set=args.env.box_size_set, 
-                          reward_type=args.train.reward_type,
-                          action_scheme=args.env.scheme,
-                          k_placement=args.env.k_placement) 
-                          for _ in range(1)]
+        [make_test_env for _ in range(1)]
     )
     train_envs.seed(args.seed)
     test_envs.seed(args.seed)
@@ -68,11 +87,19 @@ def make_envs(args):
 
 
 def build_net(args, device):
+    # For multi-size training, use max bin size for network architecture
+    use_multi_size = args.env.get('bin_sizes') is not None
+    if use_multi_size:
+        max_bin_size = [max(b[i] for b in args.env.bin_sizes) for i in range(3)]
+        container_size = max_bin_size
+    else:
+        container_size = args.env.container_size
+
     feature_net = model.ShareNet(
-        k_placement=args.env.k_placement, 
-        box_max_size=args.env.box_big, 
-        container_size=args.env.container_size, 
-        embed_size=args.model.embed_dim, 
+        k_placement=args.env.k_placement,
+        box_max_size=args.env.box_big,
+        container_size=container_size,
+        embed_size=args.model.embed_dim,
         num_layers=args.model.num_layers,
         forward_expansion=args.model.forward_expansion,
         heads=args.model.heads,
@@ -102,14 +129,20 @@ def build_net(args, device):
 def train(args):
 
     date = time.strftime(r'%Y.%m.%d-%H-%M-%S', time.localtime(time.time()))
-    time_str = args.env.id + "_" + \
-        str(args.env.container_size[0]) + "-" + str(args.env.container_size[1]) + "-" + str(args.env.container_size[2]) + "_" + \
-        args.env.scheme + "_" + str(args.env.k_placement) + "_" +\
-        args.env.box_type + "_" + \
-        args.train.algo  + '_' \
-        'seed' + str(args.seed) + "_" + \
-        args.opt.optimizer + "_" \
-        + date
+
+    # Allow custom run name via config
+    if args.get('run_name') is not None:
+        time_str = args.run_name + "_" + date
+    else:
+        # Default naming scheme
+        time_str = args.env.id + "_" + \
+            str(args.env.container_size[0]) + "-" + str(args.env.container_size[1]) + "-" + str(args.env.container_size[2]) + "_" + \
+            args.env.scheme + "_" + str(args.env.k_placement) + "_" +\
+            args.env.box_type + "_" + \
+            args.train.algo  + '_' \
+            'seed' + str(args.seed) + "_" + \
+            args.opt.optimizer + "_" \
+            + date
 
     if args.cuda and torch.cuda.is_available():
         device = torch.device("cuda", args.device)
@@ -192,8 +225,39 @@ def train(args):
     else:
         logger = LazyLogger()
 
+    # ======== Curriculum Learning Setup (Objective 3) =========
+    use_curriculum = args.train.get('use_curriculum', False)
+    curriculum_scheduler = None
+
+    if use_curriculum:
+        curriculum_scheduler = CurriculumScheduler(
+            initial_difficulty=args.train.get('curriculum_initial', 0.2),
+            final_difficulty=args.train.get('curriculum_final', 0.8),
+            curriculum_epochs=args.train.get('curriculum_epochs', 400),
+            schedule_type=args.train.get('curriculum_schedule', 'linear')
+        )
+        print(f"\nCurriculum learning enabled!")
+        print(f"  Schedule: {args.train.curriculum_schedule}")
+        print(f"  Difficulty: {args.train.curriculum_initial:.2f} → {args.train.curriculum_final:.2f}")
+        print(f"  Ramp-up epochs: {args.train.curriculum_epochs}\n")
+
     # ======== callback functions used during training =========
     def train_fn(epoch, env_step):
+        # Update curriculum difficulty if enabled
+        if use_curriculum and curriculum_scheduler is not None:
+            target_difficulty = curriculum_scheduler.get_target_difficulty(epoch)
+            set_global_difficulty(target_difficulty)
+
+            # Log curriculum info
+            if not is_debug and epoch % args.log_interval == 0:
+                writer.add_scalar('curriculum/difficulty', target_difficulty, epoch)
+                writer.add_scalar('curriculum/progress',
+                                min(1.0, epoch / args.train.curriculum_epochs), epoch)
+
+            # Print curriculum status every 50 epochs
+            if epoch % 50 == 0:
+                print(f"Epoch {epoch}: Curriculum difficulty = {target_difficulty:.3f}")
+
         # monitor leraning rate in tensorboard
         # writer.add_scalar('train/lr', optim.param_groups[0]["lr"], env_step)
         pass

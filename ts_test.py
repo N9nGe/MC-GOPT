@@ -74,8 +74,8 @@ def test(args):
 
     # Evaluation
     result = test_collector.collect(n_episode=args.test_episode, render=args.render)
-    for i in range(args.test_episode):
-        print(f"episode {i+1}\t => \tratio: {result['ratios'][i]:.4f} \t| total: {result['nums'][i]}")
+    # for i in range(args.test_episode):
+    #     print(f"episode {i+1}\t => \tratio: {result['ratios'][i]:.4f} \t| total: {result['nums'][i]}")
     print('All cases have been done!')
     print('----------------------------------------------')
     print('average space utilization: %.4f'%(result['ratio']))
