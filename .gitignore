@@ -7,3 +7,5 @@ log
 .vscode
 __pycache__/
 *.md
+results/
+plots/
