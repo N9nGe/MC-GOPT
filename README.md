@@ -26,20 +26,16 @@ pip install -r requirements.txt
 ```
 
 ## Training
-The dataset is generated on the fly, so you can directly train the model by running the following command.
+The dataset is generated on the fly, so you can directly train the model by running the following command. To train different models, you must create/edit the config file that determines various training and environment parameters. To reproduce our experiments, change the config file path to the one of interest.
 
 ```bash
-python ts_train.py --config cfg/config.yaml --device 0 
+python ts_train.py --config cfg/train_configs/config_curriculum_10.yaml --device 0 
 ```
-
-If you do not use the default dataset (the bin is 10x10x10), you can modify the tag `env` in `cfg/config.yaml` file to specify the bin size and the number of items.
-Note that most hyperparameters are in the `cfg/config.yaml` file, you can modify them to fit your needs.
-
 
 ## Evaluation
 
 ```bash
-python ts_test.py --config cfg/config.yaml --device 0 --ckp /path/to/policy_step_final.pth
+python ts_test.py --config cfg/test_configs/config_test_noncubic_5x8x10.yaml --device 0 --ckp /path/to/policy_step_final.pth
 ```
 
 If you want to visualize the packing process of one test, you can add the `--render` flag.
