@@ -1,24 +1,12 @@
 <h2 align="center">
-  <b>GOPT: Generalizable Online 3D Bin Packing via Transformer-based Deep Reinforcement Learning</b>
-
-<b><i>RA-L 2024 (Accepted)</i></b>
-
-<div align="center">
-    <a href="https://ieeexplore.ieee.org/abstract/document/10694688" target="_blank">
-    <img src="https://img.shields.io/badge/ieee-%2300629B.svg?&style=for-the-badge&logo=ieee&logoColor=white"></a>
-    <a href="https://arxiv.org/abs/2409.05344" target="_blank">
-    <img src="https://img.shields.io/badge/arxiv-%23B31B1B.svg?&style=for-the-badge&logo=arxiv&logoColor=white" alt="Paper arXiv"></a>
-</div>
-
+  <b>MC-GOPT: Multi-Bin and Curriculum Extensions of GOPT for Generalizable 3D Bin Packing</b>
 </h2>
 
-If you have any questions, feel free to contact me by xiong.heng@outlook.com.
+MC-GOPT is an extension of the original GOPT algorithm, designed to explore more diverse and scalable training strategies for 3D bin packing. While the original GOPT framework trains policies exclusively on a fixed $10^3$ cubic container, MC-GOPT expands this setting through multi–bin-size training, curriculum-based training, and combined training regimes. Our goal is to analyze how container diversity and structured learning progressions affect policy generalization across both cubic and non-cubic packing environments.
 
-## Introduction
-Robotic object packing has broad practical applications in the logistics and automation industry, often formulated by researchers as the online 3D Bin Packing Problem (3D-BPP). However, existing DRL-based methods primarily focus on enhancing performance in limited packing environments while neglecting the ability to generalize across multiple environments characterized by different bin dimensions. To this end, we propose GOPT, a generalizable online 3D Bin Packing approach via Transformer-based deep reinforcement learning (DRL). First, we design a Placement Generator module to yield finite subspaces as placement candidates and the representation of the bin. Second, we propose a Packing Transformer, which fuses the features of the items and bin, to identify the spatial correlation between the item to be packed and available sub-spaces within the bin. Coupling these two components enables GOPT’s ability to perform inference on bins of varying dimensions. 
+This repository builds directly on top of the official GOPT implementation and preserves nearly identical workflows for installation, training, and evaluation to ensure full compatibility. MC-GOPT introduces new experimental configurations and training schedules while maintaining the same code structure, making it easy to reproduce baseline results and extend experiments.
 
-![overview](./images/overview.png)
-
+the GOPT repository can be found [here](https://github.com/Xiong5Heng/GOPT).
 
 ## Installation
 This code has been tested on Ubuntu 20.04 with Cuda 12.1, Python3.9 and Pytorch 2.1.0.
@@ -64,22 +52,6 @@ python ts_test.py --config cfg/config.yaml --device 0 --ckp /path/to/policy_step
 <div align="center">
   <img src="./images/demo.gif" alt="A simple demo" width="400">
 </div>
-
-## Citation
-If you find this work useful, please consider citing:
-```
-@ARTICLE{10694688,
-  author={Xiong, Heng and Guo, Changrong and Peng, Jian and Ding, Kai and Chen, Wenjie and Qiu, Xuchong and Bai, Long and Xu, Jianfeng},
-  journal={IEEE Robotics and Automation Letters}, 
-  title={GOPT: Generalizable Online 3D Bin Packing via Transformer-Based Deep Reinforcement Learning}, 
-  year={2024},
-  volume={9},
-  number={11},
-  pages={10335-10342},
-  keywords={Transformers;Robots;Three-dimensional displays;Generators;Environmental management;Deep reinforcement learning;Cameras;Manipulation planning;reinforcement learning;robotic packing},
-  doi={10.1109/LRA.2024.3468161}}
-
-```
 
 ## License
 This source code is released only for academic use. Please do not use it for commercial purposes without authorization of the author.
